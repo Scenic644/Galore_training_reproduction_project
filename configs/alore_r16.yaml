@@ -1,0 +1,9 @@
+
+# configs/galore_r16.yaml
+method: galore
+run_name: galore_r16
+rank: 16
+update_proj_gap: 200
+scale: 0.25
+lr: 2e-5
+epochs: 3
