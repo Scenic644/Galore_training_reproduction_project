@@ -1,6 +1,0 @@
-# configs/adamw_baseline.yaml
-method: adamw
-run_name: adamw_baseline
-lr: 2e-5
-epochs: 3
-
