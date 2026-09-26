@@ -1,5 +1,0 @@
-method: lora
-run_name: lora_r8
-rank: 8
-lr: 2.0e-5
-epochs: 3

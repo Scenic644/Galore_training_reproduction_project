@@ -1,7 +1,0 @@
-method: galore
-run_name: galore_r64
-rank: 64
-update_proj_gap: 200
-scale: 0.25
-lr: 2.0e-5
-epochs: 3
