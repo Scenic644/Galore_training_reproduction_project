@@ -1,0 +1,4 @@
+method: adamw
+run_name: adamw_baseline
+lr: 2.0e-5
+epochs: 3

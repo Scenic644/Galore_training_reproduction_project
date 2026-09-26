@@ -1,0 +1,7 @@
+method: galore
+run_name: galore_r4
+rank: 4
+update_proj_gap: 200
+scale: 0.25
+lr: 2.0e-5
+epochs: 3
