@@ -20,7 +20,7 @@ def load_sst2():
               attention_mask, labels).
     tokenizer : the RoBERTa tokenizer used.
     """
-    dataset = load_dataset("glue", "sst2")
+    load_dataset("nyu-mll/glue", "sst2")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     def tokenize(examples):
