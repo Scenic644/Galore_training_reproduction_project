@@ -53,11 +53,11 @@ def train(config_path):
         )
         model = get_peft_model(model, lora_config)
     elif cfg["method"] == "galore":
-        optim = "galore_adamw"
-        optim_target = ["attn", "mlp"]
-        optim_args = (f"rank={cfg['rank']},"
-                      f"update_proj_gap={cfg['update_proj_gap']},"
-                      f"scale={cfg['scale']}")
+    optim = "galore_adamw"
+    optim_target = ["query", "key", "value", "dense", "intermediate", "output"]
+    optim_args = (f"rank={cfg['rank']},"
+                  f"update_proj_gap={cfg['update_proj_gap']},"
+                  f"scale={cfg['scale']}")
 
     training_args = TrainingArguments(
         output_dir=f"./results/{cfg['run_name']}",
