@@ -17,7 +17,7 @@ GaLore mitigates this bottleneck by exploiting the empirical and theoretical pro
 
 ## What We Reproduced
 
-The headline experiment in Zhao et al. evaluates pre-training LLaMA-7B on the C4 corpus across a cluster of 64 A100 GPUs, which is computationally intractable on student compute quotas. In alignment with Stage 3 reproduction guidelines, we reproduced **Appendix D.1, Table 7.**: memory-efficient downstream fine-tuning of RoBERTa-Base on the GLUE Stanford Sentiment Treebank (SST-2) benchmark. 
+The headline experiment in Zhao et al. evaluates pre-training LLaMA-7B on the C4 corpus across a cluster of 64 A100 GPUs, which is computationally intractable on student compute quotas. In alignment with Stage 3 reproduction guidelines, we reproduced **Appendix D.1, Table 7:** memory-efficient downstream fine-tuning of RoBERTa-Base on the GLUE Stanford Sentiment Treebank (SST-2) benchmark. 
 
 This experiment directly evaluates:
 1. **Representational Capacity:** Does GaLore maintain full-parameter expressivity over LoRA at low ranks?
@@ -34,7 +34,6 @@ galore-reproduction/
 ├── PROVENANCE.md                    # Explicit component attribution and code classification
 ├── requirements.txt                 # Pinned environment dependencies
 ├── galore_reproduction_colab.ipynb # End-to-end Google Colab execution runner
-├── Milestone_2_report.pdf
 ├── configs/                         # Initial configuration drafts for YAML runner
 │   ├── adamw_baseline.yaml
 │   ├── lora_r8.yaml
@@ -106,7 +105,7 @@ where $P_t$ satisfies $P_t^T P_t = I_r$ (assuming $m \le n$).
 
 The gradient is projected into compact representation:
 $$R_t = P_t^T G_t \in \mathbb{R}^{r \times n}$$
-Adam updates first ($M_t$) and second ($V_t$) moments directly within $\mathbb{R}^{r \times n}$. The normalized step $N_t = \frac{M_t / (1-\beta_1^t)}{\sqrt{V_t / (1-\beta_2^t)} + \epsilon}$is mapped back to the original parameter space:
+Adam updates first ($M_t$) and second ($V_t$) moments directly within $\mathbb{R}^{r \times n}$. The normalized step $N_t = \frac{M_t / (1-\beta_1^t)}{\sqrt{V_t / (1-\beta_2^t)} + \epsilon}$ is mapped back to the original parameter space:
 $$\tilde{G}_t = \alpha (P_t N_t) \in \mathbb{R}^{m \times n}$$
 $$W_t = W_{t-1} + \eta \tilde{G}_t$$
 
@@ -173,7 +172,7 @@ The complete empirical matrix across all 6 verified configurations on GLUE SST-2
 
 ### Q6: What dataset(s), and why those?
 * The paper evaluated pre-training on **C4** and downstream fine-tuning on **GLUE** (RoBERTa-Base).
-* **Our Reproduction:** Due to academic single-GPU compute quotas (NVIDIA Tesla T4 with 16 GB VRAM vs. 64$\times$A100 GPUs), we replicated **Appendix D.1, Table 7. (GLUE SST-2 fine-tuning)**. SST-2 has 67,349 training and 872 validation sequences, isolating memory scaling and representational expressivity under controlled conditions.
+* **Our Reproduction:** Due to academic single-GPU compute quotas (NVIDIA Tesla T4 with 16 GB VRAM vs. 64$\times$A100 GPUs), we replicated **Appendix D.1, Table 7 (GLUE SST-2 fine-tuning)**. SST-2 has 67,349 training and 872 validation sequences, isolating memory scaling and representational expressivity under controlled conditions.
 
 ### Q7: What metrics, and what do they actually measure (and fail to measure)?
 * **Evaluation Accuracy:** Measures classification correctness on SST-2 validation split. *Fails to measure:* Model calibration, confidence error, or out-of-distribution robustness.
