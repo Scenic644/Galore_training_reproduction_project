@@ -107,7 +107,7 @@ where $P_t$ satisfies $P_t^T P_t = I_r$ (assuming $m \le n$).
 
 The gradient is projected into compact representation:
 $$R_t = P_t^T G_t \in \mathbb{R}^{r \times n}$$
-Adam updates first ($M_t$) and second ($V_t$) moments directly within $\mathbb{R}^{r \times n}$. The normalized step $N_t = \frac{M_t}{\sqrt{V_t} + \epsilon}$ is mapped back to the original parameter space:
+Adam updates first ($M_t$) and second ($V_t$) moments directly within $\mathbb{R}^{r \times n}$. The normalized step $N_t = \frac{M_t / (1-\beta_1^t)}{\sqrt{V_t / (1-\beta_2^t)} + \epsilon}$is mapped back to the original parameter space:
 $$\tilde{G}_t = \alpha (P_t N_t) \in \mathbb{R}^{m \times n}$$
 $$W_t = W_{t-1} + \eta \tilde{G}_t$$
 
@@ -122,7 +122,7 @@ The complete empirical matrix across all 6 verified configurations on GLUE SST-2
 | Optimization Method | Rank ($r$) | Peak VRAM (MB) | Peak VRAM (GB) | Memory Saved vs. AdamW | Val Accuracy (%) | Runtime (s) | Throughput (it/s) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Full AdamW (Baseline)** | — | 2111.5 MB | 2.062 GB | 0.0% | **94.15%** | 1477.8 s | 8.55 it/s |
-| **LoRA** | 8 | **1315.5 MB** | **1.285 GB** | **37.7%** | 91.28% | **982.7 s** | **12.85 it/s** |
+| **LoRA** | 8 | **1315.8 MB** | **1.285 GB** | **37.7%** | 91.28% | **982.7 s** | **12.85 it/s** |
 | **GaLore** | 4 | 1765.4 MB | 1.724 GB | **16.4%** | 92.66% | 2363.1 s | 5.34 it/s |
 | **GaLore** | 16 | 1775.6 MB | 1.734 GB | 15.9% | 92.89% | 2369.7 s | 5.33 it/s |
 | **GaLore** | 64 | 1816.6 MB | 1.774 GB | 14.0% | 93.58% | 2408.8 s | 5.24 it/s |
@@ -138,7 +138,7 @@ The complete empirical matrix across all 6 verified configurations on GLUE SST-2
 1. **GaLore Outperforms LoRA in Representational Expressivity:**
    At rank $r=8$, LoRA achieved 91.28% accuracy. GaLore at half the rank capacity ($r=4$) attained 92.66% (+1.38% over LoRA). At $r=128$, GaLore achieves 93.92%, coming within **0.23%** of unconstrained full-rank AdamW (94.15%). This confirms that optimizing within dynamic, time-varying low-rank gradient subspaces avoids the capacity ceiling of frozen weights inherent to LoRA.
 2. **Optimizer Memory Scaling vs. Rank:**
-   GaLore reduces peak training VRAM from 2.062 GB (AdamW) down to 1.724 GB (16.4% savings at $r=4$). Scaling the rank from $r=4$ to $r=128$ increases peak VRAM by only **117 MB** (1.724 GB → 1.841 GB, 10.7% savings), demonstrating that GaLore suppresses optimizer state expansion effectively across ranks.
+   GaLore reduces peak training VRAM from 2.062 GB (AdamW) down to 1.724 GB (16.4% savings at $r=4$). Scaling the rank from r=4 to r=128 increases peak VRAM by only 117 MB (1.724 GB → 1.841 GB). Even at r=128, GaLore still saves 10.7% versus AdamW's 2.062 GB.
 3. **The Compute/Throughput Trade-off:**
    GaLore introduced an approximate **60% runtime overhead** (~2400 s vs. 1477.8 s for AdamW). This empirically confirms the computational cost of periodic SVD factorizations ($T=200$) and bidirectional matrix projections ($P^T G$ and $P N_t$), representing a direct trade-off between device memory conservation and wall-clock execution speed.
 
@@ -195,6 +195,10 @@ The complete empirical matrix across all 6 verified configurations on GLUE SST-2
 - **Optimizer Integration:** Integrated via `galore-torch==1.0` and Hugging Face `Trainer` with `optim="galore_adamw"`.
 - **Memory Instrumentation:** Monitored using PyTorch hardware hooks via `torch.cuda.max_memory_allocated()` reset prior to every run.
 - **Reproducibility:** Seed fixed to `42` across all runs to ensure deterministic evaluations.
+- **Epochs:** 3 (the paper's own RoBERTa/GLUE recipe in Appendix D.1 uses 30; reduced here for compute budget)
+- **Learning rate:** 2e-5 (paper uses 1e-5 for SST-2)
+- **Precision:** full fp32 (no fp16/bf16 mixed precision was configured)
+- **Weight decay:** 0.0 (library default; not explicitly set)
 
 ---
 
@@ -215,6 +219,8 @@ During initial setup on Google Colab, an upstream `HfUriError` occurred when que
 - **Compute Boundaries:** We could not reproduce the 7B LLaMA pre-training runs on C4 due to cluster-scale compute requirements (64$\times$A100 GPUs).
 - **Task Scope:** We evaluated on GLUE SST-2 (binary sentiment) rather than the complete 8-task GLUE benchmark suite.
 - **SVD Wall-Clock Overhead:** While GaLore achieved significant memory reduction, SVD subspace recalculation every 200 steps resulted in a ~60% wall-clock slowdown on Tesla T4 hardware compared to full AdamW.
+- **Epochs:** 3 (the paper's own RoBERTa/GLUE recipe in Appendix D.1 uses 30; reduced here for compute budget)
+- **Learning rate:** 2e-5 (paper uses 1e-5 for SST-2)
 
 ---
 
