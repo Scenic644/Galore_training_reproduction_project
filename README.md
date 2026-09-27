@@ -47,7 +47,7 @@ galore-reproduction/
 │   ├── sanity_check.py              # Standalone verification script (forward/backward & shape check)
 │   ├── analyze_results.py           # Aggregates metrics from results.csv and plots Pareto curves
 │   ├── data.py                      # SST-2 tokenization and dataset preprocessing
-│   └── train_yaml.py                # Legacy YAML-based training script (initial draft)
+│    
 └── results/
     ├── .gitkeep
     └── results.csv                  # Verified 6-configuration empirical metrics
