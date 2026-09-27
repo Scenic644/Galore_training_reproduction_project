@@ -46,7 +46,6 @@ galore-reproduction/
 │   ├── train.py                     # Primary training orchestrator (CLI: --method and --rank)
 │   ├── sanity_check.py              # Standalone verification script (forward/backward & shape check)
 │   ├── analyze_results.py           # Aggregates metrics from results.csv and plots Pareto curves
-│   ├── data.py                      # SST-2 tokenization and dataset preprocessing
 │    
 └── results/
     ├── .gitkeep
@@ -206,7 +205,7 @@ The complete empirical matrix across all 6 verified configurations on GLUE SST-2
 
 During initial setup on Google Colab, an upstream `HfUriError` occurred when querying `load_dataset("glue", "sst2")`:
 * **Cause:** `huggingface_hub >= 0.25.0` enforced strict repository namespace validation (`namespace/name`), rejecting the legacy un-namespaced string `"glue"`.
-* **Fix:** Patched all dataset loading scripts in `src/data.py`, `src/train.py`, and `src/sanity_check.py` to use the canonical namespaced path:
+* **Fix:** Patched all dataset loading scripts in `src/train.py` and `src/sanity_check.py` to use the canonical namespaced path:
   ```python
   "glue" -> "nyu-mll/glue"
   ```
