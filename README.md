@@ -3,24 +3,26 @@
 **Authors:** Muhammad Umer (30622), Duaa Naz (30668), Reham Hafeez (30574)  
 **Institution:** Institute of Business Administration (IBA), Karachi  
 **Course:** Machine Learning — Milestone 2 Reproduction Study  
-**Hardware:** NVIDIA Tesla T4 GPU (16 GB GDDR6 VRAM, Seed: 42)
+**Hardware:** NVIDIA Tesla T4 GPU (16 GB GDDR6 VRAM, Deterministic Seed: 42)
 
 ---
 
 ## Overview
 
-This repository reproduces *GaLore: Memory-Efficient LLM Training by Gradient Low-Rank Projection* (Zhao et al., ICML 2024). Training large models spends most of its memory on the optimizer's bookkeeping rather than on the weights themselves: Adam keeps two extra numbers per parameter, roughly tripling memory use. GaLore reduces this by periodically projecting each weight matrix's gradient into a smaller subspace before the optimizer stores statistics about it, then projecting the update back to full size before applying it. Unlike LoRA, the weights are never frozen or reduced, so the model keeps full-parameter learning capacity.
+This repository provides an empirical reproduction and analysis of *GaLore: Memory-Efficient LLM Training by Gradient Low-Rank Projection* (Zhao et al., ICML 2024). In deep learning optimization, the primary memory bottleneck is not parameter storage, but the stateful regularizers maintained by adaptive optimizers. In standard 16-bit mixed-precision AdamW, maintaining first- ($M_t$) and second-moment ($V_t$) statistics requires 8 bytes per parameter—double the memory footprint of the weights themselves.
+
+GaLore mitigates this bottleneck by exploiting the empirical and theoretical property that the **gradient matrix $G \in \mathbb{R}^{m \times n}$ becomes naturally low-rank during training**. By projecting $G$ into a time-varying compact subspace via periodic Singular Value Decomposition (SVD), optimizer states are tracked strictly in low-rank form. Unlike Low-Rank Adaptation (LoRA), GaLore updates the primary uncompressed weights directly, preserving full-parameter learning dynamics without freezing base matrices.
 
 ---
 
 ## What We Reproduced
 
-The paper's headline experiments pretrain LLaMA-style models on up to 19.7 billion tokens of C4 across multiple A100 GPUs, which is computationally intractable on student compute allocations. We instead reproduce the paper's own downstream fine-tuning experiment: **Section 5.4 / Table 4**, fine-tuning RoBERTa-base on GLUE SST-2 (Stanford Sentiment Treebank). 
+The headline experiment in Zhao et al. evaluates pre-training LLaMA-7B on the C4 corpus across a cluster of 64 A100 GPUs, which is computationally intractable on student compute quotas. In alignment with Stage 3 reproduction guidelines, we reproduced **Section 5.4 / Table 4 of the paper**: memory-efficient downstream fine-tuning of RoBERTa-Base on the GLUE Stanford Sentiment Treebank (SST-2) benchmark. 
 
-This setup directly tests GaLore's core claims:
-1. Does GaLore preserve full-rank parameter expressivity better than LoRA across low ranks?
-2. Does GaLore compress optimizer memory without destabilizing convergence?
-3. What is the real-world throughput and wall-clock penalty of periodic SVD projections?
+This experiment directly evaluates:
+1. **Representational Capacity:** Does GaLore maintain full-parameter expressivity over LoRA at low ranks?
+2. **Optimizer Memory Scaling:** Does GaLore reduce peak memory footprint without destabilizing convergence?
+3. **Throughput & Latency Trade-offs:** What is the actual computational overhead introduced by periodic SVD subspace factorizations?
 
 ---
 
@@ -28,74 +30,94 @@ This setup directly tests GaLore's core claims:
 
 ```
 galore-reproduction/
-├── README.md                # Comprehensive reproduction report and analysis
-├── PROVENANCE.md            # Code attribution and component classification
-├── requirements.txt         # Pinned environment dependencies
+├── README.md                        # Complete reproduction report, analysis, and paper QA
+├── PROVENANCE.md                    # Explicit component attribution and code classification
+├── requirements.txt                 # Pinned environment dependencies
+├── galore_reproduction_colab.ipynb # End-to-end Google Colab execution runner
+├── Milestone_2_report.pdf
+├── configs/                         # Initial configuration drafts for YAML runner
+│   ├── adamw_baseline.yaml
+│   ├── lora_r8.yaml
+│   ├── galore_r4.yaml
+│   ├── galore_r16.yaml
+│   ├── galore_r64.yaml
+│   └── galore_r128.yaml
 ├── src/
-│   ├── data.py              # SST-2 loading and tokenization (patched for nyu-mll/glue)
-│   ├── train.py             # Training orchestrator with peak VRAM tracking
-│   └── analyze_results.py   # Aggregates run JSONs into summary tables
-├── configs/
-│   ├── adamw_baseline.yaml  # Full-rank baseline config
-│   ├── lora_r8.yaml         # LoRA rank 8 PEFT config
-│   ├── galore_r4.yaml       # GaLore rank 4 config
-│   ├── galore_r16.yaml      # GaLore rank 16 config
-│   ├── galore_r64.yaml      # GaLore rank 64 config
-│   └── galore_r128.yaml     # GaLore rank 128 config
+│   ├── train.py                     # Primary training orchestrator (CLI: --method and --rank)
+│   ├── sanity_check.py              # Standalone verification script (forward/backward & shape check)
+│   ├── analyze_results.py           # Aggregates metrics from results.csv and plots Pareto curves
+│   ├── data.py                      # SST-2 tokenization and dataset preprocessing
+│   └── train_yaml.py                # Legacy YAML-based training script (initial draft)
 └── results/
-    ├── results.csv          # Consolidated metrics across all 6 runs
-    └── [run_subfolders]/    # Individual trainer logs, state JSONs, and metrics
+    ├── .gitkeep
+    └── results.csv                  # Verified 6-configuration empirical metrics
 ```
 
 ---
 
 ## Setup & Execution
 
-### 1. Installation
+### 1. Environment Installation
+Install the pinned dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Sanity Verification
-Always execute the sanity pass prior to full runs to confirm tensor forward/backward passes and finite loss computation:
+### 2. Sanity Verification Pass
+Before launching full training runs, execute the standalone sanity check:
 ```bash
-python src/train.py configs/adamw_baseline.yaml --sanity
+python src/sanity_check.py
 ```
-Expected output: Confirms forward pass on mini-batch, shape `(8, 2)`, and prints `Sanity check passed`.
+*Expected behavior:* Loads a 16-sample slice of SST-2 (`nyu-mll/glue`), executes one forward and backward pass through RoBERTa-Base, verifies output logits shape `(8, 2)` and initial finite loss `0.6696`, and outputs:
+```text
+Sanity check passed. Safe to launch a full training run.
+```
 
-### 3. Running Configurations
-Execute each configuration sequentially:
+### 3. Running Experimental Configurations
+Execute each configuration from the repository root. Each run trains for 3 epochs (12,630 steps, batch size 16) and appends its validation accuracy, peak VRAM, and runtime directly to `results/results.csv`:
+
 ```bash
-python src/train.py configs/adamw_baseline.yaml
-python src/train.py configs/lora_r8.yaml
-python src/train.py configs/galore_r4.yaml
-python src/train.py configs/galore_r16.yaml
-python src/train.py configs/galore_r64.yaml
-python src/train.py configs/galore_r128.yaml
-```
-*Note:* On an NVIDIA Tesla T4 GPU, LoRA takes ~16 minutes, AdamW takes ~25 minutes, and each GaLore run takes ~40 minutes.
+# 1. Full-rank AdamW Baseline
+python src/train.py --method adamw
 
-### 4. Compiling Results
+# 2. LoRA (Rank 8 PEFT Baseline)
+python src/train.py --method lora --rank 8
+
+# 3. GaLore Hyperparameter Rank Sweep (Ranks 4, 16, 64, 128)
+python src/train.py --method galore --rank 4
+python src/train.py --method galore --rank 16
+python src/train.py --method galore --rank 64
+python src/train.py --method galore --rank 128
+```
+*(Benchmark runtimes on NVIDIA Tesla T4: LoRA ~16 min, AdamW ~25 min, GaLore ~40 min per configuration).*
+
+### 4. Compiling Results & Generating Pareto Plot
+To print the summary markdown table and generate the rank curves plot (`results/rank_curves.png`):
 ```bash
 python src/analyze_results.py
 ```
-This parses all individual `metrics.json` files and prints the master results table.
 
 ---
 
-## Method
+## Method and Algorithmic Formulation
 
-GaLore optimizes models by decomposing the backpropagated gradient $G_t \in \mathbb{R}^{m \times n}$ rather than factorizing the weight matrix itself. Every $T$ iterations (here, $T=200$), GaLore performs a truncated Singular Value Decomposition (SVD) on the current layer gradient $G_t = U \Sigma V^T$ to extract an orthogonal projection matrix $P_t = U[:, :r] \in \mathbb{R}^{m \times r}$. 
+GaLore optimizes linear layers $W \in \mathbb{R}^{m \times n}$ by projecting weight gradients into low-rank subspaces rather than parameterizing weights into low-rank matrices. Every $T$ steps (here, $T=200$), GaLore performs a truncated Singular Value Decomposition (SVD) on the layer gradient $G_t = -\nabla_W \mathcal{L}(W_t) \in \mathbb{R}^{m \times n}$:
+$$G_t = U \Sigma V^T \implies P_t = U[:, :r] \in \mathbb{R}^{m \times r}$$
+where $P_t$ satisfies $P_t^T P_t = I_r$ (assuming $m \le n$). 
 
-The gradient is projected into a compact subspace $R_t = P_t^T G_t \in \mathbb{R}^{r \times n}$, where first- and second-order Adam optimizer states ($M_t, V_t$) are tracked in low-rank form. After calculating the low-rank adaptive step $N_t$, the update is mapped back to the original space via $\tilde{G}_t = \alpha (P_t N_t)$ and directly subtracted from the full-rank weights $W_t = W_{t-1} + \eta \tilde{G}_t$. 
+The gradient is projected into compact representation:
+$$R_t = P_t^T G_t \in \mathbb{R}^{r \times n}$$
+Adam updates first ($M_t$) and second ($V_t$) moments directly within $\mathbb{R}^{r \times n}$. The normalized step $N_t = \frac{M_t}{\sqrt{V_t} + \epsilon}$ is mapped back to the original parameter space:
+$$\tilde{G}_t = \alpha (P_t N_t) \in \mathbb{R}^{m \times n}$$
+$$W_t = W_{t-1} + \eta \tilde{G}_t$$
 
-Crucially, the scale factor $\alpha$ is kept constant regardless of rank $r$ (unlike LoRA's $\frac{\alpha}{r}$ scaling), preventing gradient vanishing during early training, while the weight matrix $W$ remains full-rank throughout optimization.
+Crucially, scale factor $\alpha$ is constant and independent of rank $r$ (unlike LoRA's $\frac{\alpha}{r}$), preventing gradient vanishing at small ranks. Model parameters $W$ remain unconstrained and full-rank throughout optimization.
 
 ---
 
 ## Reproduction Results
 
-Below is the complete experimental matrix across all 6 verified configurations on GLUE SST-2 (3 epochs, 12,630 steps, batch size 16, deterministic `seed=42`):
+The complete empirical matrix across all 6 verified configurations on GLUE SST-2 (NVIDIA Tesla T4 GPU, batch size 16, deterministic `seed=42`):
 
 | Optimization Method | Rank ($r$) | Peak VRAM (MB) | Peak VRAM (GB) | Memory Saved vs. AdamW | Val Accuracy (%) | Runtime (s) | Throughput (it/s) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -104,23 +126,21 @@ Below is the complete experimental matrix across all 6 verified configurations o
 | **GaLore** | 4 | 1765.4 MB | 1.724 GB | **16.4%** | 92.66% | 2363.1 s | 5.34 it/s |
 | **GaLore** | 16 | 1775.6 MB | 1.734 GB | 15.9% | 92.89% | 2369.7 s | 5.33 it/s |
 | **GaLore** | 64 | 1816.6 MB | 1.774 GB | 14.0% | 93.58% | 2408.8 s | 5.24 it/s |
-| **GaLore** | 128 | 1885.2 MB | 1.841 GB | 10.7% | **93.92%** | 2494.5 s | 5.06 it/s |
+| **GaLore** | 128 | 1885.2 MB | 1.841 GB | **10.7%** | **93.92%** | 2494.5 s | 5.06 it/s |
 
 ---
 
 ## Experiment: Hyperparameter Study (Rank Sweep Analysis)
 
-**Question:** How does the projection rank $r \in \{4, 16, 64, 128\}$ affect the trade-off between GPU memory savings, compute latency, and fine-tuning accuracy on SST-2?
+**Research Question:** How does the projection rank $r \in \{4, 16, 64, 128\}$ affect the trade-off between physical GPU memory savings, execution latency, and downstream accuracy on SST-2?
 
-### Key Findings:
-1. **Representational Capacity and Expressivity:**
-   * At rank $r=8$, LoRA achieved 91.28% accuracy. GaLore at half that rank capacity ($r=4$) attained 92.66% accuracy (+1.38% over LoRA).
-   * At $r=128$, GaLore achieves 93.92%, coming within **0.23%** of the unconstrained Full-Rank AdamW baseline (94.15%). This confirms that optimizing within dynamic, time-varying low-rank gradient subspaces avoids the capacity bottleneck of frozen base weights in LoRA.
-2. **Optimizer Memory Scaling:**
-   * GaLore reduces peak VRAM from 2.062 GB (AdamW) down to 1.724 GB (16.4% reduction at $r=4$).
-   * Expanding the rank from $r=4$ to $r=128$ increases peak VRAM by only **117 MB** (1.724 GB → 1.841 GB). This indicates that the low-rank projection suppresses optimizer state bloat across ranks, with base model parameters and activation caches dominating total memory.
+### Key Findings ("What We Found"):
+1. **GaLore Outperforms LoRA in Representational Expressivity:**
+   At rank $r=8$, LoRA achieved 91.28% accuracy. GaLore at half the rank capacity ($r=4$) attained 92.66% (+1.38% over LoRA). At $r=128$, GaLore achieves 93.92%, coming within **0.23%** of unconstrained full-rank AdamW (94.15%). This confirms that optimizing within dynamic, time-varying low-rank gradient subspaces avoids the capacity ceiling of frozen weights inherent to LoRA.
+2. **Optimizer Memory Scaling vs. Rank:**
+   GaLore reduces peak training VRAM from 2.062 GB (AdamW) down to 1.724 GB (16.4% savings at $r=4$). Scaling the rank from $r=4$ to $r=128$ increases peak VRAM by only **117 MB** (1.724 GB → 1.841 GB, 10.7% savings), demonstrating that GaLore suppresses optimizer state expansion effectively across ranks.
 3. **The Compute/Throughput Trade-off:**
-   * GaLore introduces an approximate **60% runtime overhead** (~2400 s vs. 1477.8 s for AdamW). This reflects the cost of periodic SVD factorizations every $T=200$ steps and dual matrix projections ($P^T G$ and $P N_t$), representing a direct trade-off between device memory conservation and execution speed.
+   GaLore introduced an approximate **60% runtime overhead** (~2400 s vs. 1477.8 s for AdamW). This empirically confirms the computational cost of periodic SVD factorizations ($T=200$) and bidirectional matrix projections ($P^T G$ and $P N_t$), representing a direct trade-off between device memory conservation and wall-clock execution speed.
 
 ---
 
@@ -128,7 +148,7 @@ Below is the complete experimental matrix across all 6 verified configurations o
 
 ### Q1: What is the problem, and why does it matter?
 * **Problem:** Large language model training is bounded by GPU memory. The primary bottleneck is not model parameters, but **optimizer states**. In standard 16-bit AdamW, first and second momentum states ($M_t, V_t$) consume 8 bytes per parameter—double the memory of the weights themselves.
-* **Why it matters:** Full pre-training and fine-tuning of 7B+ parameter models typically require multi-GPU server clusters (e.g., $8\times\text{A100}$), placing them out of reach for consumer GPUs with $\le 24\text{ GB}$ VRAM.
+* **Why it matters:** Full pre-training and fine-tuning of 7B+ parameter models historically requires multi-GPU server clusters (e.g., $8\times\text{A100}$), placing them out of reach for consumer GPUs with $\le 24\text{ GB}$ VRAM.
 
 ### Q2: What did people do before this paper, and what was missing?
 * **Prior Work:** LoRA freezes base weights $W_0$ and adds trainable low-rank adapters ($W = W_0 + BA$). ReLoRA attempts pre-training by periodically merging adapters into base weights.
@@ -182,11 +202,11 @@ Below is the complete experimental matrix across all 6 verified configurations o
 
 During initial setup on Google Colab, an upstream `HfUriError` occurred when querying `load_dataset("glue", "sst2")`:
 * **Cause:** `huggingface_hub >= 0.25.0` enforced strict repository namespace validation (`namespace/name`), rejecting the legacy un-namespaced string `"glue"`.
-* **Fix:** Patched all dataset loading scripts in `src/data.py`, `src/train.py`, and `sanity_check.py` to use the canonical namespaced path:
+* **Fix:** Patched all dataset loading scripts in `src/data.py`, `src/train.py`, and `src/sanity_check.py` to use the canonical namespaced path:
   ```python
   "glue" -> "nyu-mll/glue"
   ```
-  Verified via `sanity_check.py` passing with forward logits shape `(8, 2)` and initial finite loss `0.6696`.
+  Verified via `src/sanity_check.py` passing with forward logits shape `(8, 2)` and initial finite loss `0.6696`.
 
 ---
 
@@ -202,7 +222,7 @@ During initial setup on Google Colab, an upstream `HfUriError` occurred when que
 
 | Component | Source / Classification |
 |---|---|
-| `src/data.py`, `src/train.py`, `src/analyze_results.py`, all configs | **Written / Adapted by our team** |
+| `src/train.py`, `src/sanity_check.py`, `src/analyze_results.py`, `src/data.py` | **Written / Adapted by our team** |
 | GaLore optimizer (`galore_adamw`) | **Reused as-is**, via `galore-torch==1.0` / Hugging Face `Trainer` integration |
 | LoRA (`peft.LoraConfig`) | **Reused as-is**, via Hugging Face `peft` |
 | Paper baseline GLUE scores | **Reported by original authors** (Zhao et al., ICML 2024) |
