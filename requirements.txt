@@ -1,9 +1,9 @@
-torch>=2.1.0
+torch>=2.0.0
 transformers>=4.39.0
-datasets>=2.16.0
-accelerate>=0.27.0
+datasets>=2.20.0
+huggingface-hub>=0.25.0
 peft>=0.8.0
-galore-torch
-scikit-learn
+galore-torch==1.0
+pandas
 matplotlib
-pyyaml
+accelerate
