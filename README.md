@@ -44,8 +44,7 @@ galore-reproduction/
 ├── src/
 │   ├── train.py                     # Primary training orchestrator (CLI: --method and --rank)
 │   ├── sanity_check.py              # Standalone verification script (forward/backward & shape check)
-│   ├── analyze_results.py           # Aggregates metrics from results.csv and plots Pareto curves
-│    
+│   ├── analyze_results.py           # Aggregates metrics from results.csv and plots Pareto curves 
 └── results/
     ├── .gitkeep
     └── results.csv                  # Verified 6-configuration empirical metrics
