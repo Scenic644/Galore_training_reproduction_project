@@ -1,0 +1,6 @@
+method,rank,eval_accuracy,peak_vram_gb,train_runtime_sec
+adamw,-,0.9415,2.062,1477.8
+galore,4,0.9266,1.724,2363.1
+galore,16,0.9289,1.734,2369.7
+galore,64,0.9358,1.774,2408.8
+galore,128,0.9392,1.841,2494.5
