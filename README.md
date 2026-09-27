@@ -226,7 +226,7 @@ During initial setup on Google Colab, an upstream `HfUriError` occurred when que
 
 | Component | Source / Classification |
 |---|---|
-| `src/train.py`, `src/sanity_check.py`, `src/analyze_results.py`, `src/data.py` | **Written / Adapted by our team** |
+| `src/train.py`, `src/sanity_check.py`, `src/analyze_results.py` | **Written / Adapted by our team** |
 | GaLore optimizer (`galore_adamw`) | **Reused as-is**, via `galore-torch==1.0` / Hugging Face `Trainer` integration |
 | LoRA (`peft.LoraConfig`) | **Reused as-is**, via Hugging Face `peft` |
 | Paper baseline GLUE scores | **Reported by original authors** (Zhao et al., ICML 2024) |
