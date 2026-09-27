@@ -1,0 +1,7 @@
+{
+  "run_name": "lora_r8",
+  "method": "lora",
+  "rank": 8,
+  "accuracy": 0.9128440366972477,
+  "peak_memory_mb": 1315.4560546875
+}
