@@ -12,7 +12,7 @@ Run sanity_check.py once before this to confirm the model, data, and loss
 all behave as expected on a tiny batch.
 
 Each call appends one row to results/results.csv with:
-    method, rank, eval_accuracy, peak_vram_gb, train_runtime_sec
+    method, rank, seed, eval_accuracy, peak_vram_gb, train_runtime_sec
 
 Run all six configurations (in any order) to reproduce the full comparison
 table used in the README and report.
@@ -36,8 +36,8 @@ from transformers import (
 )
 
 MODEL_NAME = "roberta-base"
-RESULTS_PATH = "results/results.csv"
-SEED = 42
+RESULTS_PATH = "results/seed_runs.csv"  # experiment branch: kept apart from main's results.csv
+DEFAULT_SEED = 42
 
 # Regex targets for GaLore: every attention and feed-forward weight matrix
 # inside RoBERTa's encoder layers. Deliberately excludes the classification
@@ -63,6 +63,11 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max_length", type=int, default=128)
     parser.add_argument("--output_dir", type=str, default="./runs")
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    parser.add_argument(
+        "--save_model", action="store_true",
+        help="Save the final weights and tokenizer to models/<run_name> for the demo app",
+    )
     return parser.parse_args()
 
 
@@ -113,7 +118,7 @@ def build_training_args(args, run_name):
         eval_strategy="epoch",
         save_strategy="no",
         logging_steps=50,
-        seed=SEED,
+        seed=args.seed,
         report_to=[],  # switch to ["wandb"] once a project is configured
     )
 
@@ -132,7 +137,7 @@ def build_training_args(args, run_name):
 
 def main():
     args = parse_args()
-    set_seed(SEED)
+    set_seed(args.seed)
 
     if args.method in ("lora", "galore") and args.rank is None:
         raise ValueError(f"--rank is required for --method {args.method}")
@@ -168,6 +173,12 @@ def main():
         torch.cuda.max_memory_allocated() / (1024 ** 3) if torch.cuda.is_available() else 0.0
     )
 
+    if args.save_model:
+        save_dir = os.path.join("models", run_name)
+        trainer.save_model(save_dir)
+        tokenizer.save_pretrained(save_dir)
+        print(f"Saved model to {save_dir}")
+
     print(f"Accuracy: {metrics['eval_accuracy']:.4f}")
     print(f"Peak VRAM: {peak_vram_gb:.2f} GB")
     print(f"Training time: {runtime_sec:.1f} sec")
@@ -178,12 +189,13 @@ def main():
         writer = csv.writer(f)
         if write_header:
             writer.writerow(
-                ["method", "rank", "eval_accuracy", "peak_vram_gb", "train_runtime_sec"]
+                ["method", "rank", "seed", "eval_accuracy", "peak_vram_gb", "train_runtime_sec"]
             )
         writer.writerow(
             [
                 args.method,
                 args.rank if args.rank else "-",
+                args.seed,
                 f"{metrics['eval_accuracy']:.4f}",
                 f"{peak_vram_gb:.3f}",
                 f"{runtime_sec:.1f}",
