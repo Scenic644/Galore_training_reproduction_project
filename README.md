@@ -180,7 +180,10 @@ The complete empirical matrix across all 6 verified configurations on GLUE SST-2
 
 ### Q8: What were the headline results, and what did the authors flag as limitations?
 * **Headline Results:** Feasibility of pre-training LLaMA-7B on a single 24 GB GPU (RTX 4090); up to 65.5% optimizer memory reduction.
-* **Author-Flagged Limitations:** (1) SVD computational latency overhead (~17%); (2) Mathematical proof relies on reversible network assumptions, requiring empirical extensions (JoMA) for Transformers; (3) Subspace frequency $T$ requires manual tuning.
+* **Author-Flagged Limitations:**
+  1. *SVD Overhead:* The computational overhead of SVD is under 10% (< 10%) compared to memory offloading (Section 4.1).
+  2. *Architectural Scope:* Mathematical proof relies on reversible network assumptions, requiring empirical extensions (JoMA) for Transformers.
+  3. *Hyperparameter Tuning:* Subspace switching frequency $T$ requires manual tuning.
 
 ---
 
@@ -218,6 +221,13 @@ During initial setup on Google Colab, an upstream `HfUriError` occurred when que
 - **SVD Wall-Clock Overhead:** While GaLore achieved significant memory reduction, SVD subspace recalculation every 200 steps resulted in a ~60% wall-clock slowdown on Tesla T4 hardware compared to full AdamW.
 - **Epochs:** 3 (the paper's own RoBERTa/GLUE recipe in Appendix D.1 uses 30; reduced here for compute budget)
 - **Learning rate:** 2e-5 (paper uses 1e-5 for SST-2)
+
+---
+
+## Deployment & Video Demonstration
+
+- **Interactive App:** Implemented with Streamlit in `app/app.py` for side-by-side inference between AdamW and GaLore ($r=128$).
+- **Recorded Demo Video:** [Watch the 2-Minute Recorded Demo (Google Drive)](https://drive.google.com/drive/folders/1WBPb_dnxr0tVhZ7EpPYMOcUvpj5ZMZ3-?usp=sharing)
 
 ---
 
