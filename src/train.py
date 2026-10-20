@@ -11,11 +11,15 @@ train.py -- Fine-tune RoBERTa-base on SST-2 under one of six configurations:
 Run sanity_check.py once before this to confirm the model, data, and loss
 all behave as expected on a tiny batch.
 
-Each call appends one row to results/results.csv with:
-    method, rank, seed, eval_accuracy, peak_vram_gb, train_runtime_sec
+Extra options on this branch: --seed, --scale (GaLore alpha, default 0.25),
+--lr, --save_model (writes models/<run_name> for the demo app) and
+--results_path.
 
-Run all six configurations (in any order) to reproduce the full comparison
-table used in the README and report.
+Each call appends one row to results/seed_runs.csv with:
+    method, rank, seed, eval_accuracy, peak_vram_gb, train_runtime_sec
+If --results_path points elsewhere, the row also records lr and scale. Do not
+point it at an existing file with a different header, such as the Milestone 2
+results/results.csv, which has no seed column.
 """
 
 import argparse
