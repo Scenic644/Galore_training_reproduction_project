@@ -7,3 +7,4 @@ galore-torch==1.0
 pandas
 matplotlib
 accelerate
+streamlit

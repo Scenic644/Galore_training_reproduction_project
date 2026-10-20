@@ -15,7 +15,10 @@
   * Dataset: `nyu-mll/glue` (SST-2 task)
 
 ### 2. Team-Authored Code
-* `src/train.py`: Authored by our team. Implements the CLI training loop (`--method`, `--rank`), PyTorch VRAM hardware tracking (`torch.cuda.max_memory_allocated()`), evaluation pipeline, and results serialization to `results/results.csv`.
+* `src/train.py`: Authored by our team. Implements the CLI training loop (`--method`, `--rank`), PyTorch VRAM hardware tracking (`torch.cuda.max_memory_allocated()`), evaluation pipeline, and results serialization (`results/results.csv` in Milestone 2; `results/seed_runs.csv` or `--results_path` on the experiments branch).
 * `src/sanity_check.py`: Authored by our team. Performs minimal forward/backward pass verification to detect shape mismatches `(8, 2)` or memory leaks prior to training.
 * `src/analyze_results.py`: Authored by our team. Aggregates metrics from `results.csv` and plots Pareto rank trade-off curves.
 * `galore_reproduction_colab.ipynb`: Authored by our team. End-to-end execution runner on Google Colab T4 GPU.
+
+### 3. Milestone 3 Additions
+* `app/app.py` (Streamlit demo), `src/analyze_seeds.py`, `EXPERIMENT.md`, and the `--seed`, `--scale`, `--save_model` and `--results_path` options added to `src/train.py`: written with AI assistance (Claude). Our team ran every experiment on Google Colab T4 GPUs, tested the app, and reviewed the code and write-up. All reported numbers come from `results/seed_runs.csv` and `results/paper_recipe_runs.csv`.
