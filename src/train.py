@@ -65,6 +65,14 @@ def parse_args():
     parser.add_argument("--output_dir", type=str, default="./runs")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument(
+        "--scale", type=float, default=0.25,
+        help="GaLore scale alpha (default 0.25; the paper's fine-tuning recipe uses 4 at rank 4 and 2 at rank 8)",
+    )
+    parser.add_argument(
+        "--results_path", type=str, default=RESULTS_PATH,
+        help="CSV to append to; a non-default path also records lr and scale",
+    )
+    parser.add_argument(
         "--save_model", action="store_true",
         help="Save the final weights and tokenizer to models/<run_name> for the demo app",
     )
@@ -126,7 +134,7 @@ def build_training_args(args, run_name):
         common.update(
             optim="galore_adamw",
             optim_target_modules=GALORE_TARGET_MODULES,
-            optim_args=f"rank={args.rank}, update_proj_gap=200, scale=0.25",
+            optim_args=f"rank={args.rank}, update_proj_gap=200, scale={args.scale}",
         )
     # adamw and lora both use the Trainer's default AdamW optimizer;
     # LoRA's memory savings come from having fewer trainable parameters,
@@ -143,6 +151,8 @@ def main():
         raise ValueError(f"--rank is required for --method {args.method}")
 
     run_name = args.method + (f"_r{args.rank}" if args.rank else "")
+    if args.method == "galore" and args.scale != 0.25:
+        run_name += f"_a{args.scale:g}"
     print(f"=== Running configuration: {run_name} ===")
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -183,24 +193,20 @@ def main():
     print(f"Peak VRAM: {peak_vram_gb:.2f} GB")
     print(f"Training time: {runtime_sec:.1f} sec")
 
-    os.makedirs("results", exist_ok=True)
-    write_header = not os.path.exists(RESULTS_PATH)
-    with open(RESULTS_PATH, "a", newline="") as f:
+    results_path = args.results_path
+    os.makedirs(os.path.dirname(results_path) or ".", exist_ok=True)
+    write_header = not os.path.exists(results_path)
+    extended = results_path != RESULTS_PATH
+    with open(results_path, "a", newline="") as f:
         writer = csv.writer(f)
         if write_header:
-            writer.writerow(
-                ["method", "rank", "seed", "eval_accuracy", "peak_vram_gb", "train_runtime_sec"]
-            )
-        writer.writerow(
-            [
-                args.method,
-                args.rank if args.rank else "-",
-                args.seed,
-                f"{metrics['eval_accuracy']:.4f}",
-                f"{peak_vram_gb:.3f}",
-                f"{runtime_sec:.1f}",
-            ]
-        )
+            cols = ["method", "rank", "seed"] + (["lr", "scale"] if extended else [])
+            writer.writerow(cols + ["eval_accuracy", "peak_vram_gb", "train_runtime_sec"])
+        row = [args.method, args.rank if args.rank else "-", args.seed]
+        if extended:
+            row += [args.lr, args.scale if args.method == "galore" else "-"]
+        row += [f"{metrics['eval_accuracy']:.4f}", f"{peak_vram_gb:.3f}", f"{runtime_sec:.1f}"]
+        writer.writerow(row)
 
 
 if __name__ == "__main__":
