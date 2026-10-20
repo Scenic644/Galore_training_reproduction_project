@@ -21,4 +21,4 @@
 * `galore_reproduction_colab.ipynb`: Authored by our team. End-to-end execution runner on Google Colab T4 GPU.
 
 ### 3. Milestone 3 Additions
-* `app/app.py` (Streamlit demo), `src/analyze_seeds.py`, `EXPERIMENT.md`, and the `--seed`, `--scale`, `--save_model` and `--results_path` options added to `src/train.py`: written with AI assistance (Claude). Our team ran every experiment on Google Colab T4 GPUs, tested the app, and reviewed the code and write-up. All reported numbers come from `results/seed_runs.csv` and `results/paper_recipe_runs.csv`.
+* `app/app.py` (Streamlit demo), `src/analyze_seeds.py`, `EXPERIMENT.md` and the `--seed`, `--scale`, `--save_model` and `--results_path` options in `src/train.py` were developed by our team with AI assistance (Claude). We ran every experiment on Google Colab T4 GPUs and tested and reviewed the code and write-up. All reported numbers come from `results/seed_runs.csv` and `results/paper_recipe_runs.csv`.
