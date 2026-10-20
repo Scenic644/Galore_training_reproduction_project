@@ -261,7 +261,7 @@ During initial setup on Google Colab, an upstream `HfUriError` occurred when que
 | Component | Source / Classification |
 |---|---|
 | `src/train.py`, `src/sanity_check.py`, `src/analyze_results.py` | **Written / Adapted by our team** |
-| `app/app.py`, `src/analyze_seeds.py`, `EXPERIMENT.md` and the `--seed`, `--scale`, `--save_model`, `--results_path` options in `src/train.py` (Milestone 3) | **Written with AI assistance (Claude), run and reviewed by our team** (see `PROVENANCE.md`) |
+| `app/app.py`, `src/analyze_seeds.py`, `EXPERIMENT.md` and the `--seed`, `--scale`, `--save_model`, `--results_path` options in `src/train.py` (Milestone 3) | **Developed by our team with AI assistance (Claude)** (see `PROVENANCE.md`) |
 | GaLore optimizer (`galore_adamw`) | **Reused as-is**, via `galore-torch==1.0` / Hugging Face `Trainer` integration |
 | LoRA (`peft.LoraConfig`) | **Reused as-is**, via Hugging Face `peft` |
 | Paper baseline GLUE scores | **Reported by original authors** (Zhao et al., ICML 2024) |
